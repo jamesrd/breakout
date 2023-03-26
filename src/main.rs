@@ -53,7 +53,7 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Scoreboard { score: 0 })
+        .insert_resource(Scoreboard { score: 0, high_score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
         .add_event::<CollisionEvent>()
@@ -173,6 +173,7 @@ impl WallBundle {
 #[derive(Resource)]
 struct Scoreboard {
     score: usize,
+    high_score: usize,
 }
 
 // Add the game's entities to our world
@@ -226,6 +227,19 @@ fn setup(
         TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: SCOREBOARD_FONT_SIZE,
+                    color: TEXT_COLOR,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: SCOREBOARD_FONT_SIZE,
+                color: SCORE_COLOR,
+            }),
+            TextSection::new(
+                " <-> High Score: ",
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: SCOREBOARD_FONT_SIZE,
@@ -348,9 +362,13 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
     }
 }
 
-fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+fn update_scoreboard(mut scoreboard: ResMut<Scoreboard>, mut query: Query<&mut Text>) {
     let mut text = query.single_mut();
+    if scoreboard.score > scoreboard.high_score {
+        scoreboard.high_score = scoreboard.score;
+    }
     text.sections[1].value = scoreboard.score.to_string();
+    text.sections[3].value = scoreboard.high_score.to_string();
 }
 
 fn check_for_collisions(
@@ -377,7 +395,7 @@ fn check_for_collisions(
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
-                scoreboard.score += 1;
+                scoreboard.score += 10;
                 commands.entity(collider_entity).despawn();
             }
 
