@@ -31,10 +31,11 @@ const RIGHT_WALL: f32 = 450.;
 const BOTTOM_WALL: f32 = -300.;
 const TOP_WALL: f32 = 300.;
 
+//const BRICK_SIZE: Vec2 = Vec2::new(500., 200.);
 const BRICK_SIZE: Vec2 = Vec2::new(100., 30.);
 // These values are exact
 const GAP_BETWEEN_PADDLE_AND_BRICKS: f32 = 270.0;
-const GAP_BETWEEN_BRICKS: f32 = 5.0;
+const GAP_BETWEEN_BRICKS: f32 = 1.0;
 // These values are lower bounds, as the number of bricks is computed
 const GAP_BETWEEN_BRICKS_AND_CEILING: f32 = 20.0;
 const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
@@ -42,8 +43,8 @@ const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
-const PADDLE_COLOR: Color = Color::rgb(0.3, 0.3, 0.7);
+const BACKGROUND_COLOR: Color = Color::rgb(0., 0., 0.);
+const PADDLE_COLOR: Color = Color::rgb(0.4, 0.3, 0.4);
 const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
 const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
@@ -53,7 +54,7 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Scoreboard { score: 0, high_score: 0 })
+        .insert_resource(Scoreboard { score: 0, high_score: 0, bricks_remaining: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
         .add_event::<CollisionEvent>()
@@ -92,7 +93,9 @@ struct Collider;
 struct CollisionEvent;
 
 #[derive(Component)]
-struct Brick;
+struct Brick {
+    points: usize,
+}
 
 #[derive(Resource)]
 struct CollisionSound(Handle<AudioSource>);
@@ -174,6 +177,7 @@ impl WallBundle {
 struct Scoreboard {
     score: usize,
     high_score: usize,
+    bricks_remaining: usize,
 }
 
 // Add the game's entities to our world
@@ -182,6 +186,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
+    mut scoreboard: ResMut<Scoreboard>,
 ) {
     // Camera
     commands.spawn(Camera2dBundle::default());
@@ -301,7 +306,13 @@ fn setup(
     let offset_x = left_edge_of_bricks + BRICK_SIZE.x / 2.;
     let offset_y = bottom_edge_of_bricks + BRICK_SIZE.y / 2.;
 
+    let r_color_step = 0.5 / n_rows as f32;
+
     for row in 0..n_rows {
+        let r = BRICK_COLOR.r() + (r_color_step * row as f32);
+        let row_color = Color::rgb(r , BRICK_COLOR.g(), BRICK_COLOR.b());
+        let row_points = 10 + (row * 5);
+
         for column in 0..n_columns {
             let brick_position = Vec2::new(
                 offset_x + column as f32 * (BRICK_SIZE.x + GAP_BETWEEN_BRICKS),
@@ -312,7 +323,7 @@ fn setup(
             commands.spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        color: BRICK_COLOR,
+                        color: row_color,
                         ..default()
                     },
                     transform: Transform {
@@ -322,9 +333,10 @@ fn setup(
                     },
                     ..default()
                 },
-                Brick,
+                Brick { points: row_points },
                 Collider,
             ));
+            scoreboard.bricks_remaining+=1;
         }
     }
 }
@@ -395,9 +407,15 @@ fn check_for_collisions(
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
-                scoreboard.score += 10;
+                let brick = maybe_brick.unwrap();
+                scoreboard.score += &brick.points; 
                 commands.entity(collider_entity).despawn();
+                scoreboard.bricks_remaining -= 1;
+            } else if transform.translation.y == BOTTOM_WALL {
+                scoreboard.score = 0;
             }
+            
+
 
             // reflect the ball when it collides
             let mut reflect_x = false;
@@ -422,6 +440,7 @@ fn check_for_collisions(
             if reflect_y {
                 ball_velocity.y = -ball_velocity.y;
             }
+
         }
     }
 }
@@ -430,11 +449,16 @@ fn play_collision_sound(
     mut collision_events: EventReader<CollisionEvent>,
     audio: Res<Audio>,
     sound: Res<CollisionSound>,
+    // scoreboard: Res<Scoreboard>,
 ) {
     // Play a sound once per frame if a collision occurred.
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
         audio.play(sound.0.clone());
+
+        //if scoreboard.bricks_remaining == 0 {
+        //    println!("All bricks gone");
+        //}
     }
 }
