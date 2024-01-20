@@ -54,12 +54,17 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Scoreboard { score: 0, high_score: 0, bricks_remaining: 0 })
+        .insert_resource(Scoreboard {
+            score: 0,
+            high_score: 0,
+            bricks_remaining: 0,
+        })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .add_event::<CollisionEvent>()
         // Add our gameplay simulation systems to the fixed timestep schedule
         .add_systems(
+            FixedUpdate,
             (
                 check_for_collisions,
                 apply_velocity.before(check_for_collisions),
@@ -67,13 +72,12 @@ fn main() {
                     .before(check_for_collisions)
                     .after(apply_velocity),
                 play_collision_sound.after(check_for_collisions),
-            )
-                .in_schedule(CoreSchedule::FixedUpdate),
+            ),
         )
         // Configure how frequently our gameplay systems are run
-        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
-        .add_system(update_scoreboard)
-        .add_system(bevy::window::close_on_esc)
+        .insert_resource(Time::<Fixed>::from_seconds(TIME_STEP.into()))
+        .add_systems(Update, update_scoreboard)
+        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 
@@ -89,7 +93,7 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Collider;
 
-#[derive(Default)]
+#[derive(Default, Event)]
 struct CollisionEvent;
 
 #[derive(Component)]
@@ -259,11 +263,8 @@ fn setup(
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: SCOREBOARD_TEXT_PADDING,
-                left: SCOREBOARD_TEXT_PADDING,
-                ..default()
-            },
+            top: SCOREBOARD_TEXT_PADDING,
+            left: SCOREBOARD_TEXT_PADDING,
             ..default()
         }),
     );
@@ -310,7 +311,7 @@ fn setup(
 
     for row in 0..n_rows {
         let r = BRICK_COLOR.r() + (r_color_step * row as f32);
-        let row_color = Color::rgb(r , BRICK_COLOR.g(), BRICK_COLOR.b());
+        let row_color = Color::rgb(r, BRICK_COLOR.g(), BRICK_COLOR.b());
         let row_points = 10 + (row * 5);
 
         for column in 0..n_columns {
@@ -336,7 +337,7 @@ fn setup(
                 Brick { points: row_points },
                 Collider,
             ));
-            scoreboard.bricks_remaining+=1;
+            scoreboard.bricks_remaining += 1;
         }
     }
 }
@@ -408,14 +409,12 @@ fn check_for_collisions(
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
                 let brick = maybe_brick.unwrap();
-                scoreboard.score += &brick.points; 
+                scoreboard.score += &brick.points;
                 commands.entity(collider_entity).despawn();
                 scoreboard.bricks_remaining -= 1;
             } else if transform.translation.y == BOTTOM_WALL {
                 scoreboard.score = 0;
             }
-            
-
 
             // reflect the ball when it collides
             let mut reflect_x = false;
@@ -440,14 +439,13 @@ fn check_for_collisions(
             if reflect_y {
                 ball_velocity.y = -ball_velocity.y;
             }
-
         }
     }
 }
 
 fn play_collision_sound(
     mut collision_events: EventReader<CollisionEvent>,
-    audio: Res<Audio>,
+    mut commands: Commands,
     sound: Res<CollisionSound>,
     // scoreboard: Res<Scoreboard>,
 ) {
@@ -455,7 +453,10 @@ fn play_collision_sound(
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
-        audio.play(sound.0.clone());
+        commands.spawn(AudioBundle {
+            source: sound.0.clone(),
+            settings: PlaybackSettings::ONCE,
+        });
 
         //if scoreboard.bricks_remaining == 0 {
         //    println!("All bricks gone");
