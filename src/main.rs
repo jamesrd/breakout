@@ -3,7 +3,7 @@
 use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
-    sprite::MaterialMesh2dBundle,
+    sprite::MaterialMesh2dBundle, asset::AssetMetaCheck,
 };
 
 // Defines the amount of time that should elapse between each physics step.
@@ -53,6 +53,7 @@ const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
+        .insert_resource(AssetMetaCheck::Never)
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard {
             score: 0,
