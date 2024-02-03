@@ -1,23 +1,47 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<meta name="theme-color" content="#ffffff">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <meta name="theme-color" content="#ffffff">
+  <style>
+    body {
+      background-color: black;
+      margin: 0px;
+      text-align: center;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      background-color: white;
+    }
+
+    h2 {
+      color: white;
+    }
+  </style>
 </head>
 
-<body style="margin: 0px;">
+<body>
+  <div class="header">
+    <h2>Breakout!</h2>
+    <button id="play-btn" onclick="runGame()">Click to play!</button>
+  </div>
   <script type="module">
     import init from './breakout.js'
 
-    init().catch((error) => {
-      if (!error.message.startsWith("Using exceptions for control flow, don't mind me. This isn't actually an error!")) {
-        throw error;
-      }
-    });
+    window.runGame = function () {
+      init().catch((error) => {
+        if (!error.message.startsWith("Using exceptions for control flow, don't mind me. This isn't actually an error!")) {
+          throw error;
+        }
+      });
+      document.getElementById("play-btn").remove();
+    }
   </script>
 </body>
 
 </html>
-
